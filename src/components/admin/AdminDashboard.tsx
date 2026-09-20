@@ -3,7 +3,8 @@ import {
   Shield, Package, ShoppingCart, Tag, Star, Settings, Plus, Edit, Trash2,
   Check, X, AlertCircle, RefreshCw, MessageCircle, DollarSign, TrendingUp,
   Eye, EyeOff, LogOut, Search, Filter, Save, Landmark, CreditCard, Copy,
-  CheckCircle2, Building, Wallet, ExternalLink, ArrowRight
+  CheckCircle2, Building, Wallet, ExternalLink, ArrowRight, FolderTree, Sparkles, Layers,
+  Lock, Key
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { Product, Order, Review, Coupon, Category, StoreSettings } from '../../types/index.ts';
@@ -43,6 +44,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin, onR
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'orders' | 'reviews' | 'coupons' | 'payments' | 'settings'>('analytics');
   const [copiedTestAccount, setCopiedTestAccount] = useState(false);
   const [showSecondaryBank, setShowSecondaryBank] = useState(false);
@@ -62,6 +64,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin, onR
   // Product Edit/Add Modal
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
+  const [isCustomCategoryMode, setIsCustomCategoryMode] = useState(false);
+  const [customCategoryName, setCustomCategoryName] = useState('');
+
+  // Category Edit/Add Modal
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Partial<Category> | null>(null);
+  const [categorySearch, setCategorySearch] = useState('');
+  const [productCategoryFilter, setProductCategoryFilter] = useState('all');
 
   // Coupon Create Modal
   const [couponModalOpen, setCouponModalOpen] = useState(false);
@@ -112,12 +122,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin, onR
 
   const handleAdminLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!passwordInput.trim()) return;
     setAuthError('');
-    const res = await adminLogin(passwordInput);
-    if (!res.success) {
-      setAuthError(res.error || 'Invalid administrator password.');
-    } else {
-      setPasswordInput('');
+    setIsAuthenticating(true);
+    try {
+      const res = await adminLogin(passwordInput.trim());
+      if (!res.success) {
+        setAuthError(res.error || 'Access Denied: The provided key does not match the configured ADMIN_SECRET_KEY.');
+      } else {
+        setPasswordInput('');
+      }
+    } catch (err) {
+      setAuthError('Authentication verification failed. Please check your network connection.');
+    } finally {
+      setIsAuthenticating(false);
     }
   };
 
@@ -201,6 +219,55 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin, onR
     }
   };
 
+  const handleSaveCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCategory?.name?.trim()) return;
+    const key = adminKey || '';
+    try {
+      if (editingCategory.id) {
+        await apiService.updateCategory(editingCategory.id, editingCategory, key);
+        setActionMsg(`Category "${editingCategory.name}" updated successfully!`);
+      } else {
+        await apiService.createCategory(editingCategory, key);
+        setActionMsg(`New category "${editingCategory.name}" created!`);
+      }
+      setCategoryModalOpen(false);
+      setEditingCategory(null);
+      loadAdminData();
+      onRefreshData();
+      setTimeout(() => setActionMsg(''), 3000);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteCategory = async (id: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete category "${name}"? Products in this category will not be deleted.`)) return;
+    const key = adminKey || '';
+    try {
+      await apiService.deleteCategory(id, key);
+      setActionMsg(`Category "${name}" deleted.`);
+      loadAdminData();
+      onRefreshData();
+      setTimeout(() => setActionMsg(''), 3000);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleQuickAddCategory = async (preset: { name: string; image: string; description: string }) => {
+    const key = adminKey || '';
+    try {
+      await apiService.createCategory(preset, key);
+      setActionMsg(`Category "${preset.name}" added to boutique!`);
+      loadAdminData();
+      onRefreshData();
+      setTimeout(() => setActionMsg(''), 3000);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!settings) return;
@@ -214,66 +281,122 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin, onR
     }
   };
 
-  // If not authenticated as admin, show login screen
+  // If not authenticated as admin, show password-protected overlay login gate
   if (!isAdmin) {
     return (
-      <div className="min-h-[70vh] flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-3xl border border-neutral-200 p-8 shadow-xl space-y-6 text-center">
-          <div className="w-16 h-16 rounded-full bg-neutral-900 text-[#D4AF37] flex items-center justify-center mx-auto shadow-md">
-            <Shield className="w-8 h-8" />
-          </div>
-          <div className="space-y-1">
-            <h2 className="font-serif text-2xl font-bold text-neutral-900">Le-one Boutique Portal</h2>
-            <p className="text-xs text-neutral-500">
-              Enter authorized administrator credentials to manage orders, inventory, and boutique operations.
-            </p>
-          </div>
+      <div
+        id="admin-overlay-login-gate"
+        className="fixed inset-0 z-[100] bg-neutral-950/95 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 overflow-y-auto min-h-screen text-neutral-100"
+      >
+        <div className="w-full max-w-md my-auto relative">
+          {/* Ambient Gold Glow Backdrop */}
+          <div className="absolute -inset-1 bg-gradient-to-r from-[#D4AF37]/20 via-amber-500/10 to-[#D4AF37]/20 rounded-3xl blur-xl opacity-60 pointer-events-none" />
 
-          <form onSubmit={handleAdminLoginSubmit} className="space-y-4 text-left">
-            <div>
-              <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1">
-                Admin Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  placeholder="Enter administrator password"
-                  value={passwordInput}
-                  onChange={e => setPasswordInput(e.target.value)}
-                  className="w-full pl-3.5 pr-10 py-2.5 bg-neutral-50 border border-neutral-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
+          {/* Gate Card */}
+          <div className="relative bg-[#121212] border border-neutral-800/90 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6 text-center backdrop-blur-sm">
+            {/* Top gold accent gradient line */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent rounded-t-2xl" />
+
+            {/* Emblem */}
+            <div className="relative mx-auto w-16 h-16 rounded-2xl bg-neutral-950 border border-[#D4AF37]/40 text-[#D4AF37] flex items-center justify-center shadow-xl shadow-black/60">
+              <Lock className="w-7 h-7 text-[#D4AF37]" />
+              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-amber-500 border border-neutral-950"></span>
+              </span>
             </div>
 
-            {authError && (
-              <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-lg border border-rose-200">
-                {authError}
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] font-mono uppercase tracking-wider">
+                <Shield className="w-3 h-3 text-[#D4AF37]" />
+                Restricted Admin Gate
+              </div>
+              <h2 className="font-serif text-2xl font-bold text-white tracking-tight">
+                Le-one Administrator Gate
+              </h2>
+              <p className="text-xs text-neutral-400 leading-relaxed max-w-xs mx-auto">
+                Enter the master <code className="px-1.5 py-0.5 bg-neutral-800 text-[#D4AF37] font-mono text-[11px] rounded border border-neutral-700">ADMIN_SECRET_KEY</code> configured in your environment to decrypt and access management controls.
               </p>
-            )}
+            </div>
 
-            <button
-              type="submit"
-              className="w-full py-3 bg-neutral-900 hover:bg-[#B8860B] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-md"
-            >
-              Access Administrator Dashboard
-            </button>
-          </form>
+            <form onSubmit={handleAdminLoginSubmit} className="space-y-4 text-left">
+              <div>
+                <label className="block text-[11px] font-bold text-neutral-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>Secret Key / Master Password</span>
+                  <span className="text-[10px] text-neutral-400 font-mono lowercase">env: ADMIN_SECRET_KEY</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none">
+                    <Key className="w-4 h-4 text-[#D4AF37]/80" />
+                  </div>
+                  <input
+                    id="admin-secret-key-input"
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    autoFocus
+                    placeholder="Enter ADMIN_SECRET_KEY"
+                    value={passwordInput}
+                    onChange={e => {
+                      setPasswordInput(e.target.value);
+                      if (authError) setAuthError('');
+                    }}
+                    className="w-full pl-10 pr-10 py-3 bg-neutral-950 border border-neutral-700 rounded-xl text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-all font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer p-1"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
 
-          <button
-            onClick={onExitAdmin}
-            className="text-xs text-neutral-500 hover:text-neutral-900"
-          >
-            ← Return to Storefront
-          </button>
+              {authError && (
+                <div className="p-3 bg-rose-950/40 border border-rose-800/60 rounded-xl text-rose-200 text-xs flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-semibold text-rose-300">Access Denied</p>
+                    <p className="text-neutral-300 text-[11px] leading-relaxed">{authError}</p>
+                  </div>
+                </div>
+              )}
+
+              <button
+                id="admin-gate-submit-btn"
+                type="submit"
+                disabled={isAuthenticating || !passwordInput.trim()}
+                className="w-full py-3.5 bg-gradient-to-r from-[#D4AF37] via-[#f3d37a] to-[#B8860B] hover:opacity-95 text-neutral-950 text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-[#D4AF37]/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAuthenticating ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-neutral-950" />
+                    <span>Verifying Environment Key...</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-4 h-4 text-neutral-950" />
+                    <span>Unlock Administrator Console</span>
+                    <ArrowRight className="w-4 h-4 text-neutral-950" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="pt-2 border-t border-neutral-800/80 flex items-center justify-between text-xs text-neutral-400">
+              <button
+                type="button"
+                onClick={onExitAdmin}
+                className="hover:text-neutral-200 transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <span>← Return to Public Boutique</span>
+              </button>
+              <span className="text-[10px] font-mono text-neutral-400 flex items-center gap-1">
+                <Shield className="w-3 h-3 text-[#D4AF37]" /> TLS Encrypted
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -289,10 +412,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin, onR
   // Filtered products
   const filteredProducts = (products || []).filter(p => {
     if (!p) return false;
-    if (!productSearch) return true;
     const name = p.name || '';
     const category = p.category || '';
-    return name.toLowerCase().includes(productSearch.toLowerCase()) || category.toLowerCase().includes(productSearch.toLowerCase());
+    const sku = p.sku || '';
+    const matchesSearch = !productSearch || 
+      name.toLowerCase().includes(productSearch.toLowerCase()) || 
+      category.toLowerCase().includes(productSearch.toLowerCase()) ||
+      sku.toLowerCase().includes(productSearch.toLowerCase());
+    const matchesCat = productCategoryFilter === 'all' || category.toLowerCase() === productCategoryFilter.toLowerCase();
+    return matchesSearch && matchesCat;
+  });
+
+  // Filtered categories
+  const filteredCategories = (categories || []).filter(c => {
+    if (!c) return false;
+    if (!categorySearch) return true;
+    return (c.name || '').toLowerCase().includes(categorySearch.toLowerCase()) ||
+      (c.description || '').toLowerCase().includes(categorySearch.toLowerCase());
   });
 
   return (
@@ -315,6 +451,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin, onR
         </div>
 
         <div className="flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 bg-emerald-950/50 border border-emerald-500/30 rounded-full text-[11px] text-emerald-400 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>ADMIN_SECRET_KEY: ACTIVE</span>
+          </div>
+
           <button
             onClick={loadAdminData}
             className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs font-medium flex items-center gap-1 text-neutral-300"
@@ -332,11 +473,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin, onR
           </button>
 
           <button
-            onClick={adminLogout}
-            className="p-2 bg-neutral-800 hover:bg-rose-950 text-rose-400 rounded-lg text-xs font-medium flex items-center gap-1"
-            title="Sign Out"
+            id="admin-lock-portal-action-btn"
+            onClick={() => {
+              adminLogout();
+              setPasswordInput('');
+            }}
+            className="px-3.5 py-2 bg-neutral-800 hover:bg-rose-950/70 border border-neutral-700/80 hover:border-rose-700/60 text-rose-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Lock Portal & Require Secret Key"
           >
-            <LogOut className="w-4 h-4" />
+            <Lock className="w-3.5 h-3.5 text-rose-400" />
+            <span>Lock Portal</span>
           </button>
         </div>
       </div>
@@ -352,7 +498,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin, onR
       <div className="flex items-center gap-2 border-b border-neutral-200 pb-3 overflow-x-auto">
         {[
           { id: 'analytics', label: 'Overview & Revenue', icon: TrendingUp },
-          { id: 'products', label: `Jewelry Catalog (${products.length})`, icon: Package },
+          { id: 'products', label: `Products Catalog (${products.length})`, icon: Package },
+          { id: 'categories', label: `Categories (${categories.length})`, icon: FolderTree },
           { id: 'orders', label: `Customer Orders (${orders.length})`, icon: ShoppingCart },
           { id: 'reviews', label: `Customer Reviews (${reviews.length})`, icon: Star },
           { id: 'coupons', label: `Discount Coupons (${coupons.length})`, icon: Tag },
@@ -398,7 +545,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin, onR
             </div>
 
             <div className="p-6 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">Jewelry in Catalog</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">Products in Catalog</span>
               <p className="font-serif text-3xl font-bold text-[#B8860B]">{products.length}</p>
               <p className="text-[11px] text-neutral-500">{analytics.lowStockCount || 0} low stock items</p>
             </div>
@@ -442,16 +589,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin, onR
       {/* TAB 2: Product Management */}
       {activeTab === 'products' && (
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="relative max-w-sm flex-1">
-              <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search jewelry catalog..."
-                value={productSearch}
-                onChange={e => setProductSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white border border-neutral-300 rounded-xl text-xs"
-              />
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+              <div className="relative max-w-sm flex-1">
+                <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search by name, category, SKU..."
+                  value={productSearch}
+                  onChange={e => setProductSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-white border border-neutral-300 rounded-xl text-xs"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold uppercase text-neutral-400 tracking-wider">Category:</span>
+                <select
+                  value={productCategoryFilter}
+                  onChange={e => setProductCategoryFilter(e.target.value)}
+                  className="px-3 py-2 bg-white border border-neutral-300 rounded-xl text-xs font-medium text-neutral-800"
+                >
+                  <option value="all">All Categories ({products.length})</option>
+                  {categories.map(c => {
+                    const count = products.filter(p => (p.category || '').toLowerCase() === c.name.toLowerCase()).length;
+                    return (
+                      <option key={c.id} value={c.name}>
+                        {c.name} ({count})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
             </div>
 
             <button
@@ -459,22 +627,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin, onR
                 setEditingProduct({
                   name: '',
                   price: 50000,
-                  category: 'Necklaces',
+                  category: categories[0]?.name || 'Perfumes & Fragrances',
                   description: '',
-                  images: ['https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80'],
+                  images: ['https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=800&q=80'],
                   stock: 10,
-                  material: '18K Gold Plated Brass',
-                  sku: `LEONE-${Date.now().toString().slice(-4)}`,
+                  material: '',
+                  sku: `LEO-${Date.now().toString().slice(-4)}`,
                   rating: 5.0,
                   reviewCount: 0,
                   isFeatured: true
                 });
+                setIsCustomCategoryMode(false);
+                setCustomCategoryName('');
                 setProductModalOpen(true);
               }}
-              className="px-4 py-2.5 bg-neutral-900 hover:bg-[#B8860B] text-white text-xs font-bold uppercase tracking-wider rounded-xl flex items-center gap-2"
+              className="px-4 py-2.5 bg-neutral-900 hover:bg-[#B8860B] text-white text-xs font-bold uppercase tracking-wider rounded-xl flex items-center gap-2 self-start lg:self-auto transition-colors shadow-xs"
             >
               <Plus className="w-4 h-4" />
-              <span>Add New Jewelry Piece</span>
+              <span>Add New Product</span>
             </button>
           </div>
 
@@ -540,6 +710,185 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin, onR
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: Categories Management */}
+      {activeTab === 'categories' && (
+        <div className="space-y-6">
+          {/* Header & Create Button */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-serif text-xl font-bold text-neutral-900">
+                Product Categories & Departments ({categories.length})
+              </h3>
+              <p className="text-xs text-neutral-500 mt-1 max-w-2xl">
+                Organize your boutique into product lines. Add perfumes, luxury bags, watches, jewelry, cosmetics, footwear, or any new future category.
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                setEditingCategory({
+                  name: '',
+                  description: '',
+                  image: 'https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=800&q=80'
+                });
+                setCategoryModalOpen(true);
+              }}
+              className="px-4 py-2.5 bg-neutral-900 hover:bg-[#B8860B] text-white text-xs font-bold uppercase tracking-wider rounded-xl flex items-center gap-2 self-start sm:self-auto transition-colors shadow-xs"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create New Category</span>
+            </button>
+          </div>
+
+          {/* Quick-Add Presets Banner */}
+          <div className="bg-amber-50/60 border border-amber-200/80 rounded-2xl p-4 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
+              <Sparkles className="w-4 h-4 text-[#B8860B]" />
+              <span>1-Click Popular Category Presets</span>
+              <span className="text-[11px] font-normal text-amber-800/80">(Click any department to instantly add it to your boutique)</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                {
+                  name: 'Perfumes & Fragrances',
+                  image: 'https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=800&q=80',
+                  description: 'Niche Arabian ouds, French florals, luxury extraits de parfum, and signature scents.'
+                },
+                {
+                  name: 'Luxury Bags & Clutches',
+                  image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=800&q=80',
+                  description: 'Handcrafted leather tote bags, evening crystal clutches, and designer accessories.'
+                },
+                {
+                  name: 'Designer Watches',
+                  image: 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?auto=format&fit=crop&w=800&q=80',
+                  description: 'Luxury timepieces for men and women with stainless steel and leather straps.'
+                },
+                {
+                  name: 'Beauty & Cosmetics',
+                  image: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=800&q=80',
+                  description: 'Premium skincare, hydrating serums, makeup, and radiant beauty essentials.'
+                },
+                {
+                  name: 'Luxury Footwear',
+                  image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=800&q=80',
+                  description: 'Handmade Italian leather heels, loafers, and designer footwear.'
+                },
+                {
+                  name: 'Sunglasses & Eyewear',
+                  image: 'https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=800&q=80',
+                  description: 'UV-protected polarized designer sunglasses and luxury eyewear frames.'
+                }
+              ].map(preset => {
+                const alreadyAdded = categories.some(c => c.name.toLowerCase() === preset.name.toLowerCase());
+                return (
+                  <button
+                    key={preset.name}
+                    disabled={alreadyAdded}
+                    onClick={() => handleQuickAddCategory(preset)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                      alreadyAdded
+                        ? 'bg-neutral-100 text-neutral-400 border border-neutral-200 cursor-not-allowed'
+                        : 'bg-white text-neutral-800 border border-amber-200 hover:border-[#B8860B] hover:text-[#B8860B] shadow-xs'
+                    }`}
+                  >
+                    <span>{alreadyAdded ? '✓' : '+'}</span>
+                    <span>{preset.name}</span>
+                    {alreadyAdded && <span className="text-[10px] text-neutral-400 font-normal">(Added)</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Search Category */}
+          <div className="relative max-w-sm">
+            <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search categories by name..."
+              value={categorySearch}
+              onChange={e => setCategorySearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-white border border-neutral-300 rounded-xl text-xs"
+            />
+          </div>
+
+          {/* Categories Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredCategories.map(cat => {
+              const liveCount = products.filter(p => (p.category || '').toLowerCase() === cat.name.toLowerCase()).length;
+              return (
+                <div
+                  key={cat.id}
+                  className="bg-white rounded-2xl border border-neutral-200 overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="relative h-44 overflow-hidden bg-neutral-100">
+                      <img
+                        src={cat.image}
+                        alt={cat.name}
+                        className="w-full h-full object-cover"
+                        onError={(e: any) => {
+                          e.target.src = 'https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=800&q=80';
+                        }}
+                      />
+                      <div className="absolute top-3 right-3 bg-black/75 backdrop-blur-xs text-white px-2.5 py-1 rounded-full text-[11px] font-bold">
+                        {liveCount} {liveCount === 1 ? 'Product' : 'Products'}
+                      </div>
+                    </div>
+
+                    <div className="p-5 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="font-serif text-base font-bold text-neutral-900">{cat.name}</h4>
+                        <span className="font-mono text-[10px] text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded">
+                          /{cat.slug}
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-600 line-clamp-2">
+                        {cat.description || 'No description provided.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => {
+                        setProductCategoryFilter(cat.name);
+                        setActiveTab('products' as any);
+                      }}
+                      className="text-xs font-semibold text-neutral-600 hover:text-neutral-900 flex items-center gap-1"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-[#B8860B]" />
+                      <span>View Products ({liveCount})</span>
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          setEditingCategory(cat);
+                          setCategoryModalOpen(true);
+                        }}
+                        className="p-1.5 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200 rounded-lg transition-colors"
+                        title="Edit category"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                        className="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
+                        title="Delete category"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -1278,14 +1627,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin, onR
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-bold text-neutral-700 uppercase mb-1">Category</label>
-                  <select
-                    value={editingProduct.category || 'Necklaces'}
-                    onChange={e => setEditingProduct({ ...editingProduct, category: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl text-sm"
-                  >
-                    {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                  </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-bold text-neutral-700 uppercase">Category</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomCategoryMode(!isCustomCategoryMode);
+                        if (!isCustomCategoryMode) {
+                          setCustomCategoryName('');
+                        }
+                      }}
+                      className="text-[11px] text-[#B8860B] font-bold hover:underline"
+                    >
+                      {isCustomCategoryMode ? '← Pick Existing' : '+ New Category'}
+                    </button>
+                  </div>
+                  {isCustomCategoryMode ? (
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Perfumes, Luxury Bags..."
+                      value={customCategoryName}
+                      onChange={e => {
+                        setCustomCategoryName(e.target.value);
+                        setEditingProduct({ ...editingProduct, category: e.target.value });
+                      }}
+                      className="w-full px-3 py-2 border border-amber-300 bg-amber-50/40 rounded-xl text-sm font-medium focus:ring-2 focus:ring-[#B8860B]"
+                    />
+                  ) : (
+                    <select
+                      value={editingProduct.category || categories[0]?.name || 'Perfumes & Fragrances'}
+                      onChange={e => setEditingProduct({ ...editingProduct, category: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl text-sm"
+                    >
+                      {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    </select>
+                  )}
                 </div>
                 <div>
                   <label className="block font-bold text-neutral-700 uppercase mb-1">Stock Units</label>
@@ -1349,7 +1726,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin, onR
                   type="submit"
                   className="flex-1 py-2.5 bg-neutral-900 hover:bg-[#B8860B] text-white rounded-xl font-bold"
                 >
-                  Save Piece
+                  Save Product
                 </button>
               </div>
             </form>
@@ -1400,6 +1777,132 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin, onR
               <div className="flex gap-2 pt-2">
                 <button type="button" onClick={() => setCouponModalOpen(false)} className="flex-1 py-2 bg-neutral-100 rounded-xl">Cancel</button>
                 <button type="submit" className="flex-1 py-2 bg-neutral-900 text-white rounded-xl font-bold">Create Coupon</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Category Add/Edit Modal */}
+      {categoryModalOpen && editingCategory && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full space-y-5 text-xs shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="font-serif text-lg font-bold text-neutral-900">
+                  {editingCategory.id ? 'Edit Boutique Category' : 'Create New Product Category'}
+                </h3>
+                <p className="text-[11px] text-neutral-500">
+                  Set up a department (e.g. Perfumes & Fragrances, Luxury Bags, Watches, Skincare)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCategoryModalOpen(false)}
+                className="p-1 rounded-full text-neutral-400 hover:text-neutral-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCategory} className="space-y-4">
+              <div>
+                <label className="block font-bold text-neutral-700 uppercase mb-1">
+                  Category Department Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Perfumes & Fragrances, Designer Bags, Fine Watches..."
+                  value={editingCategory.name || ''}
+                  onChange={e => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-neutral-700 uppercase mb-1">
+                  Description
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Short overview describing this collection to customers..."
+                  value={editingCategory.description || ''}
+                  onChange={e => setEditingCategory({ ...editingCategory, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-neutral-700 uppercase mb-1">
+                  Cover / Banner Image URL
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://images.unsplash.com/..."
+                  value={editingCategory.image || ''}
+                  onChange={e => setEditingCategory({ ...editingCategory, image: e.target.value })}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-xs"
+                />
+
+                {/* Quick image preset chips */}
+                <div className="mt-2 space-y-1.5">
+                  <span className="text-[10px] uppercase font-bold text-neutral-400">Quick Image Presets:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { label: '🧴 Perfumes', url: 'https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=800&q=80' },
+                      { label: '👜 Luxury Bags', url: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=800&q=80' },
+                      { label: '⌚ Watches', url: 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?auto=format&fit=crop&w=800&q=80' },
+                      { label: '💄 Cosmetics', url: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=800&q=80' },
+                      { label: '✨ Jewelry', url: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80' },
+                      { label: '👞 Footwear', url: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=800&q=80' }
+                    ].map(p => (
+                      <button
+                        type="button"
+                        key={p.label}
+                        onClick={() => setEditingCategory({ ...editingCategory, image: p.url })}
+                        className="px-2 py-1 bg-neutral-100 hover:bg-amber-100 hover:text-amber-900 text-neutral-600 rounded text-[10px] font-medium transition-colors"
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Live Preview */}
+                {editingCategory.image && (
+                  <div className="mt-3 relative h-28 rounded-xl overflow-hidden border border-neutral-200 bg-neutral-100">
+                    <img
+                      src={editingCategory.image}
+                      alt="Category Preview"
+                      className="w-full h-full object-cover"
+                      onError={(e: any) => {
+                        e.target.src = 'https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=800&q=80';
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent flex items-end p-3">
+                      <span className="text-white font-serif font-bold text-sm">
+                        {editingCategory.name || 'Category Preview'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-3 border-t">
+                <button
+                  type="button"
+                  onClick={() => setCategoryModalOpen(false)}
+                  className="flex-1 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl font-bold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-neutral-900 hover:bg-[#B8860B] text-white rounded-xl font-bold transition-colors shadow-xs"
+                >
+                  {editingCategory.id ? 'Save Changes' : 'Create Category'}
+                </button>
               </div>
             </form>
           </div>

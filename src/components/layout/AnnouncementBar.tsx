@@ -1,8 +1,12 @@
 import React from 'react';
-import { MapPin, Phone, Sparkles } from 'lucide-react';
+import { MapPin, Phone, Sparkles, Package } from 'lucide-react';
 import { STORE_PHONE, STORE_HOURS } from '../../utils/formatters.ts';
 
-export const AnnouncementBar: React.FC = () => {
+interface AnnouncementBarProps {
+  onTrackOrderClick?: () => void;
+}
+
+export const AnnouncementBar: React.FC<AnnouncementBarProps> = ({ onTrackOrderClick }) => {
   return (
     <div id="announcement-bar" className="bg-[#141414] text-[#E5E5E5] text-xs py-2 px-4 border-b border-[#262626]">
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
@@ -26,6 +30,17 @@ export const AnnouncementBar: React.FC = () => {
           <span className="text-amber-200/90 font-medium">
             Free Abuja Delivery on Orders over ₦150,000
           </span>
+          
+          {onTrackOrderClick && (
+            <button
+              onClick={onTrackOrderClick}
+              className="inline-flex items-center gap-1 text-neutral-300 hover:text-[#D4AF37] transition-colors cursor-pointer"
+            >
+              <Package className="w-3 h-3 text-[#D4AF37]" />
+              <span>Track Order</span>
+            </button>
+          )}
+
           <a
             href={`tel:${STORE_PHONE.replace(/\s+/g, '')}`}
             className="hidden sm:flex items-center gap-1 text-neutral-300 hover:text-[#D4AF37] transition-colors"

@@ -158,7 +158,12 @@ export const apiService = {
     if (params.phone) query.append('phone', params.phone);
     if (params.adminKey) query.append('adminKey', params.adminKey);
 
-    const res = await fetch(`${API_BASE}/orders?${query.toString()}`);
+    const headers: Record<string, string> = {};
+    if (params.adminKey) {
+      headers['x-admin-key'] = params.adminKey;
+    }
+
+    const res = await fetch(`${API_BASE}/orders?${query.toString()}`, { headers });
     if (!res.ok) throw new Error('Failed to fetch orders');
     return res.json();
   },

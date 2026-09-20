@@ -1,6 +1,7 @@
 import React from 'react';
-import { MapPin, Phone, MessageCircle, Clock, Shield, Star, Gem, ArrowUpRight } from 'lucide-react';
+import { MapPin, Phone, MessageCircle, Clock, Shield, Star, Gem, ArrowUpRight, Lock } from 'lucide-react';
 import { STORE_PHONE, STORE_HOURS, STORE_ADDRESS, GOOGLE_MAPS_URL, getWhatsAppUrl } from '../../utils/formatters.ts';
+import { NewsletterSignup } from './NewsletterSignup.tsx';
 
 interface FooterProps {
   onNavigate: (view: string, payload?: any) => void;
@@ -11,34 +12,40 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
     <footer id="main-footer" className="bg-[#111111] text-neutral-300 border-t border-neutral-800">
       {/* Upper VIP / Newsletter Section */}
       <div className="border-b border-neutral-800 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-8">
-          <div className="text-center lg:text-left max-w-xl">
-            <h3 className="font-serif text-2xl sm:text-3xl text-white font-bold tracking-wide">
-              The Le-one Jewelries Experience
-            </h3>
-            <p className="mt-2 text-sm text-neutral-400 leading-relaxed">
-              Visit our boutique in Aki Cube Mall, Gwarinpa, Abuja or browse our curated fine jewelry collection online with nationwide door-to-door delivery.
-            </p>
-          </div>
+        <div className="max-w-7xl mx-auto space-y-8">
+          {/* Newsletter Signup Component with local validation */}
+          <NewsletterSignup />
 
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <a
-              href={getWhatsAppUrl('Hello Le-one Jewelries, I would like to join your VIP customer list.')}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-[#25D366] hover:bg-[#1EBE5D] text-white text-sm font-semibold rounded-lg transition-all shadow-md"
-            >
-              <MessageCircle className="w-4 h-4 fill-current" />
-              Chat Directly on WhatsApp
-            </a>
+          {/* Boutique Visit & Fast WhatsApp Contact Bar */}
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-6 pt-6 border-t border-neutral-800/80">
+            <div className="text-center lg:text-left max-w-xl">
+              <h3 className="font-serif text-lg sm:text-xl text-white font-bold tracking-wide">
+                The Le-one Jewelries Boutique
+              </h3>
+              <p className="mt-1 text-xs sm:text-sm text-neutral-400 leading-relaxed">
+                Visit our physical showroom at Aki Cube Mall, Gwarinpa, Abuja, or speak directly with our private jewelers via WhatsApp for bespoke orders and inquiries.
+              </p>
+            </div>
 
-            <button
-              onClick={() => onNavigate('contact')}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-medium rounded-lg border border-neutral-700 transition-colors"
-            >
-              <MapPin className="w-4 h-4 text-[#D4AF37]" />
-              Store Directions
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
+              <a
+                href={getWhatsAppUrl('Hello Le-one Jewelries, I would like to join your VIP customer list.')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white text-xs font-semibold rounded-lg transition-all shadow-md"
+              >
+                <MessageCircle className="w-4 h-4 fill-current" />
+                Chat Directly on WhatsApp
+              </a>
+
+              <button
+                onClick={() => onNavigate('contact')}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-medium rounded-lg border border-neutral-700 transition-colors"
+              >
+                <MapPin className="w-4 h-4 text-[#D4AF37]" />
+                Store Directions
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -224,6 +231,17 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               <Shield className="w-3.5 h-3.5 text-[#D4AF37]" />
               Verified Boutique in Abuja, Nigeria
             </span>
+            <span className="text-neutral-700 hidden sm:inline">•</span>
+            {/* Discreet staff link */}
+            <button
+              id="footer-staff-access-btn"
+              onClick={() => onNavigate('admin')}
+              className="group inline-flex items-center gap-1.5 text-neutral-500 hover:text-[#D4AF37] transition-colors cursor-pointer text-[11px]"
+              title="Staff Administration Portal"
+            >
+              <Lock className="w-3 h-3 text-neutral-500 group-hover:text-[#D4AF37] transition-colors" />
+              <span>Staff Portal</span>
+            </button>
           </div>
         </div>
       </div>

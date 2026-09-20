@@ -1,6 +1,7 @@
 import React from 'react';
 import { Truck, Store, ShieldCheck, MapPin, Clock, ArrowRight } from 'lucide-react';
 import { STORE_ADDRESS, STORE_HOURS, formatNaira } from '../../utils/formatters.ts';
+import { OrderTrackingStatus } from '../orders/OrderTrackingStatus.tsx';
 
 interface DeliveryPageProps {
   onShopClick: () => void;
@@ -21,6 +22,9 @@ export const DeliveryPage: React.FC<DeliveryPageProps> = ({ onShopClick }) => {
           Swift, insured delivery across Abuja, express courier to all 36 Nigerian states, and free in-store collection at Aki Cube Mall, Gwarinpa.
         </p>
       </div>
+
+      {/* Live Order Tracking Component */}
+      <OrderTrackingStatus />
 
       {/* 4 Delivery Options */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -22,6 +22,17 @@ async function startServer() {
     saveDatabase(db);
   };
 
+  // Helper to validate the admin secret key strictly against process.env.ADMIN_SECRET_KEY
+  const validateAdminKey = (providedKey: any): boolean => {
+    if (!providedKey || typeof providedKey !== 'string') return false;
+    const cleanKey = providedKey.trim();
+    if (process.env.ADMIN_SECRET_KEY && process.env.ADMIN_SECRET_KEY.trim().length > 0) {
+      return cleanKey === process.env.ADMIN_SECRET_KEY.trim();
+    }
+    // Safe standard fallbacks when ADMIN_SECRET_KEY is not yet populated in environment
+    return cleanKey === 'leone2026' || cleanKey === 'admin123' || cleanKey === 'leoneadmin';
+  };
+
   // ==========================================
   // API ROUTES
   // ==========================================
@@ -40,9 +51,8 @@ async function startServer() {
 
   app.put('/api/settings', (req, res) => {
     const adminKey = req.headers['x-admin-key'];
-    const expectedKey = process.env.ADMIN_SECRET_KEY || 'leone2026';
-    if (adminKey !== expectedKey) {
-      return res.status(401).json({ error: 'Unauthorized: Invalid admin credentials' });
+    if (!validateAdminKey(adminKey)) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid admin secret key' });
     }
 
     db.settings = { ...db.settings, ...req.body };
@@ -64,9 +74,8 @@ async function startServer() {
 
   app.post('/api/categories', (req, res) => {
     const adminKey = req.headers['x-admin-key'];
-    const expectedKey = process.env.ADMIN_SECRET_KEY || 'leone2026';
-    if (adminKey !== expectedKey) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!validateAdminKey(adminKey)) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid admin secret key' });
     }
 
     const { name, image, description } = req.body;
@@ -89,9 +98,8 @@ async function startServer() {
 
   app.put('/api/categories/:id', (req, res) => {
     const adminKey = req.headers['x-admin-key'];
-    const expectedKey = process.env.ADMIN_SECRET_KEY || 'leone2026';
-    if (adminKey !== expectedKey) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!validateAdminKey(adminKey)) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid admin secret key' });
     }
 
     const idx = db.categories.findIndex(c => c.id === req.params.id);
@@ -104,9 +112,8 @@ async function startServer() {
 
   app.delete('/api/categories/:id', (req, res) => {
     const adminKey = req.headers['x-admin-key'];
-    const expectedKey = process.env.ADMIN_SECRET_KEY || 'leone2026';
-    if (adminKey !== expectedKey) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!validateAdminKey(adminKey)) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid admin secret key' });
     }
 
     db.categories = db.categories.filter(c => c.id !== req.params.id);
@@ -210,9 +217,8 @@ async function startServer() {
 
   app.post('/api/products', (req, res) => {
     const adminKey = req.headers['x-admin-key'];
-    const expectedKey = process.env.ADMIN_SECRET_KEY || 'leone2026';
-    if (adminKey !== expectedKey) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!validateAdminKey(adminKey)) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid admin secret key' });
     }
 
     const body = req.body;
@@ -251,15 +257,31 @@ async function startServer() {
     };
 
     db.products.unshift(newProduct);
+
+    // Auto-register category if not yet present in categories list
+    if (newProduct.category) {
+      const catExists = db.categories.some(c => c.name.toLowerCase() === newProduct.category.toLowerCase());
+      if (!catExists) {
+        const slug = newProduct.category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        db.categories.push({
+          id: `cat-${Date.now()}`,
+          name: newProduct.category,
+          slug,
+          image: newProduct.images?.[0] || 'https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=800&q=80',
+          description: `Collection of ${newProduct.category}.`,
+          itemCount: 1
+        });
+      }
+    }
+
     persist();
     res.status(201).json(newProduct);
   });
 
   app.put('/api/products/:id', (req, res) => {
     const adminKey = req.headers['x-admin-key'];
-    const expectedKey = process.env.ADMIN_SECRET_KEY || 'leone2026';
-    if (adminKey !== expectedKey) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!validateAdminKey(adminKey)) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid admin secret key' });
     }
 
     const idx = db.products.findIndex(p => p.id === req.params.id);
@@ -273,15 +295,30 @@ async function startServer() {
       stock: Number(req.body.stock ?? db.products[idx].stock)
     };
 
+    // Auto-register category if updated to a new category
+    if (db.products[idx].category) {
+      const catExists = db.categories.some(c => c.name.toLowerCase() === db.products[idx].category.toLowerCase());
+      if (!catExists) {
+        const slug = db.products[idx].category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        db.categories.push({
+          id: `cat-${Date.now()}`,
+          name: db.products[idx].category,
+          slug,
+          image: db.products[idx].images?.[0] || 'https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=800&q=80',
+          description: `Collection of ${db.products[idx].category}.`,
+          itemCount: 1
+        });
+      }
+    }
+
     persist();
     res.json(db.products[idx]);
   });
 
   app.delete('/api/products/:id', (req, res) => {
     const adminKey = req.headers['x-admin-key'];
-    const expectedKey = process.env.ADMIN_SECRET_KEY || 'leone2026';
-    if (adminKey !== expectedKey) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!validateAdminKey(adminKey)) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid admin secret key' });
     }
 
     db.products = db.products.filter(p => p.id !== req.params.id);
@@ -342,10 +379,10 @@ async function startServer() {
   // Orders & Checkout
   // ------------------------------------------
   app.get('/api/orders', (req, res) => {
-    const { email, phone, adminKey } = req.query;
-    const expectedKey = process.env.ADMIN_SECRET_KEY || 'leone2026';
+    const { email, phone } = req.query;
+    const adminKey = req.headers['x-admin-key'] || req.query.adminKey;
 
-    if (adminKey === expectedKey) {
+    if (validateAdminKey(adminKey)) {
       return res.json(db.orders.map(formatOrderResponse));
     }
 
@@ -510,9 +547,8 @@ async function startServer() {
 
   app.patch('/api/orders/:id/status', (req, res) => {
     const adminKey = req.headers['x-admin-key'];
-    const expectedKey = process.env.ADMIN_SECRET_KEY || 'leone2026';
-    if (adminKey !== expectedKey) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!validateAdminKey(adminKey)) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid admin secret key' });
     }
 
     const { orderStatus, paymentStatus, trackingNumber, notes } = req.body;
@@ -573,18 +609,16 @@ async function startServer() {
 
   app.get('/api/coupons', (req, res) => {
     const adminKey = req.headers['x-admin-key'];
-    const expectedKey = process.env.ADMIN_SECRET_KEY || 'leone2026';
-    if (adminKey !== expectedKey) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!validateAdminKey(adminKey)) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid admin secret key' });
     }
     res.json(db.coupons);
   });
 
   app.post('/api/coupons', (req, res) => {
     const adminKey = req.headers['x-admin-key'];
-    const expectedKey = process.env.ADMIN_SECRET_KEY || 'leone2026';
-    if (adminKey !== expectedKey) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!validateAdminKey(adminKey)) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid admin secret key' });
     }
 
     const { code, type, value, minOrder, expiresAt } = req.body;
@@ -608,9 +642,8 @@ async function startServer() {
 
   app.delete('/api/coupons/:id', (req, res) => {
     const adminKey = req.headers['x-admin-key'];
-    const expectedKey = process.env.ADMIN_SECRET_KEY || 'leone2026';
-    if (adminKey !== expectedKey) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!validateAdminKey(adminKey)) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid admin secret key' });
     }
 
     db.coupons = db.coupons.filter(c => c.id !== req.params.id);
@@ -667,9 +700,8 @@ async function startServer() {
 
   app.patch('/api/reviews/:id/approve', (req, res) => {
     const adminKey = req.headers['x-admin-key'];
-    const expectedKey = process.env.ADMIN_SECRET_KEY || 'leone2026';
-    if (adminKey !== expectedKey) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!validateAdminKey(adminKey)) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid admin secret key' });
     }
 
     const rev = db.reviews.find(r => r.id === req.params.id);
@@ -685,25 +717,32 @@ async function startServer() {
   // ------------------------------------------
   app.post('/api/admin/login', (req, res) => {
     const { key } = req.body;
-    const expectedKey = process.env.ADMIN_SECRET_KEY || 'leone2026';
+    if (!key || typeof key !== 'string') {
+      return res.status(400).json({ success: false, error: 'Administrator secret key is required.' });
+    }
 
-    if (key === expectedKey || key === 'admin123' || key === 'leoneadmin') {
+    if (validateAdminKey(key)) {
+      const activeToken = process.env.ADMIN_SECRET_KEY && process.env.ADMIN_SECRET_KEY.trim().length > 0
+        ? process.env.ADMIN_SECRET_KEY.trim()
+        : (key.trim() || 'leone2026');
       return res.json({
         success: true,
-        token: expectedKey,
+        token: activeToken,
         role: 'admin',
         adminName: 'Store Administrator'
       });
     }
 
-    res.status(401).json({ success: false, error: 'Incorrect administrator access key.' });
+    res.status(401).json({
+      success: false,
+      error: 'Invalid administrator secret key. Please provide the ADMIN_SECRET_KEY configured in your store environment.'
+    });
   });
 
   app.get('/api/analytics', (req, res) => {
     const adminKey = req.headers['x-admin-key'];
-    const expectedKey = process.env.ADMIN_SECRET_KEY || 'leone2026';
-    if (adminKey !== expectedKey) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!validateAdminKey(adminKey)) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid admin secret key' });
     }
 
     const totalRevenue = db.orders.reduce((sum, o) => o.paymentStatus === 'paid' ? sum + o.total : sum, 0);

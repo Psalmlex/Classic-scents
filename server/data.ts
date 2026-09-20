@@ -90,6 +90,22 @@ export const initialCategories: Category[] = [
     image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=800&q=80',
     description: 'Curated luxury gifts packaged in our signature Le-one presentation box.',
     itemCount: 4
+  },
+  {
+    id: 'cat-perfumes',
+    name: 'Perfumes & Fragrances',
+    slug: 'perfumes-and-fragrances',
+    image: 'https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=800&q=80',
+    description: 'Niche Arabian ouds, French florals, luxury extraits de parfum, and signature scents.',
+    itemCount: 2
+  },
+  {
+    id: 'cat-bags',
+    name: 'Luxury Bags & Clutches',
+    slug: 'luxury-bags-and-clutches',
+    image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=800&q=80',
+    description: 'Handcrafted leather tote bags, evening crystal clutches, and designer accessories.',
+    itemCount: 1
   }
 ];
 
@@ -507,6 +523,75 @@ export const initialProducts: Product[] = [
     rating: 5.0,
     reviewCount: 14,
     isDemo: true
+  },
+  {
+    id: 'prod-013',
+    sku: 'LEO-PRF-013',
+    name: 'Oud Royale Extrait de Parfum',
+    slug: 'oud-royale-extrait-de-parfum',
+    price: 95000,
+    originalPrice: 120000,
+    discountPercent: 21,
+    category: 'Perfumes & Fragrances',
+    tags: ['featured', 'best_seller', 'new_arrival'],
+    images: [
+      'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&w=1000&q=80',
+      'https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=1000&q=80'
+    ],
+    description: 'An opulent, long-lasting oriental fragrance featuring rare Cambodian oud, smoky amber, Bulgarian rose, and velvety Madagascar vanilla. Projects a regal sillage that lingers gracefully for over 24 hours.',
+    specifications: {
+      'Volume': '100ml / 3.4 fl. oz.',
+      'Concentration': 'Extrait de Parfum (30% Oil)',
+      'Scent Profile': 'Smoky Oud, Warm Amber, Spiced Rose',
+      'Gender': 'Unisex'
+    },
+    materials: ['Glass Flacon with Gold Crest', 'Magnetic Cap', 'Natural Fragrance Oils'],
+    variations: [
+      { name: 'Bottle Size', options: ['50ml Travel Flacon', '100ml Signature Flacon'] }
+    ],
+    stock: 7,
+    lowStockThreshold: 2,
+    isFeatured: true,
+    isNewArrival: true,
+    isBestSeller: true,
+    isActive: true,
+    rating: 4.9,
+    reviewCount: 18,
+    isDemo: false
+  },
+  {
+    id: 'prod-014',
+    sku: 'LEO-PRF-014',
+    name: 'Golden Amber Pour Femme',
+    slug: 'golden-amber-pour-femme',
+    price: 78000,
+    originalPrice: 90000,
+    discountPercent: 13,
+    category: 'Perfumes & Fragrances',
+    tags: ['new_arrival', 'featured'],
+    images: [
+      'https://images.unsplash.com/photo-1588405748880-12d1d2a59f75?auto=format&fit=crop&w=1000&q=80'
+    ],
+    description: 'A luminous, radiant floral-amber eau de parfum opening with sparkling Italian bergamot and neroli, leading into heart notes of golden jasmine, tonka bean, and white musk.',
+    specifications: {
+      'Volume': '85ml',
+      'Concentration': 'Eau de Parfum',
+      'Scent Profile': 'Floral Amber, Bergamot, Tonka Bean',
+      'Gender': 'Women'
+    },
+    materials: ['Cut Crystal Bottle', '24K Gold Plated Collar'],
+    variations: [
+      { name: 'Packaging', options: ['Standard Boutique Box', 'Deluxe Velvet Gift Box'] }
+    ],
+    stock: 9,
+    lowStockThreshold: 2,
+    isFeatured: true,
+    isNewArrival: true,
+    isBestSeller: false,
+    isActive: true,
+    rating: 4.8,
+    reviewCount: 11,
+    isDemo: false
   }
 ];
 
