@@ -1,0 +1,6 @@
+{
+  "name": "Le-one Jewelries",
+  "description": "Premium luxury jewelry e-commerce and physical boutique store at Aki Cube Mall, Gwarinpa, Abuja, Nigeria.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
